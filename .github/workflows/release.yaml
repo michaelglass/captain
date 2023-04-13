@@ -38,13 +38,13 @@ on:
         description: "Version (only for production releases)"
         required: false
         type: string
-    secrets:
-      CLOUDFRONT_DISTRIBUTION_ID:
-        required: true
-      RWX_APPLE_DEVELOPER_ID_APPLICATION_CERT:
-        required: true
-      RWX_APPLE_APP_STORE_CONNECT_API_KEY:
-        required: true
+    # secrets:
+    #   CLOUDFRONT_DISTRIBUTION_ID:
+    #     required: true
+    #   RWX_APPLE_DEVELOPER_ID_APPLICATION_CERT:
+    #     required: true
+    #   RWX_APPLE_APP_STORE_CONNECT_API_KEY:
+    #     required: true
 
 jobs:
   verify-inputs:
@@ -132,13 +132,13 @@ jobs:
       id-token: write
     strategy:
       matrix:
-        os: [linux, darwin, windows]
-        arch: [amd64, arm64]
+        os: [linux] #[linux, darwin, windows]
+        arch: [amd64] #[amd64, arm64]
         include:
           - arch: amd64
             new_arch: x86_64
-          - arch: arm64
-            new_arch: aarch64
+          # - arch: arm64
+          #   new_arch: aarch64
     env:
       GH_TOKEN: ${{ github.token }}
     steps:
@@ -157,23 +157,23 @@ jobs:
             CGO_ENABLED=0 \
             LDFLAGS="-w -s -X github.com/rwx-research/captain-cli.Version=${{ needs.extract-version-details.outputs.full-version }}" \
             nix develop --command mage
-      - name: Sign & Notarize Apple Release
-        if: ${{ matrix.os == 'darwin' }}
-        run: |
-          curl -fsSLO https://github.com/indygreg/apple-platform-rs/releases/download/apple-codesign%2F0.22.0/apple-codesign-0.22.0-x86_64-unknown-linux-musl.tar.gz
-          tar xzvf apple-codesign-0.22.0-x86_64-unknown-linux-musl.tar.gz --strip-components=1
+      # - name: Sign & Notarize Apple Release
+      #   if: ${{ matrix.os == 'darwin' }}
+      #   run: |
+      #     curl -fsSLO https://github.com/indygreg/apple-platform-rs/releases/download/apple-codesign%2F0.22.0/apple-codesign-0.22.0-x86_64-unknown-linux-musl.tar.gz
+      #     tar xzvf apple-codesign-0.22.0-x86_64-unknown-linux-musl.tar.gz --strip-components=1
 
-          echo "$RWX_APPLE_DEVELOPER_ID_APPLICATION_CERT" > rwx-developer-id-application-cert.pem
-          # first we sign the binary. This happens locally.
-          ./rcodesign sign --pem-source rwx-developer-id-application-cert.pem --code-signature-flags runtime "./captain"
-          # notarizing requires certain container formats, that's why we zip
-          zip -r captain.zip "./captain"
-          echo "$RWX_APPLE_APP_STORE_CONNECT_API_KEY" > rwx-apple-app-store-connect-api-key.json
-          ./rcodesign notary-submit --wait --api-key-path rwx-apple-app-store-connect-api-key.json captain.zip
-        env:
-          CODESIGN_VERSION: 0.22.0
-          RWX_APPLE_DEVELOPER_ID_APPLICATION_CERT: ${{ secrets.RWX_APPLE_DEVELOPER_ID_APPLICATION_CERT }}
-          RWX_APPLE_APP_STORE_CONNECT_API_KEY: ${{ secrets.RWX_APPLE_APP_STORE_CONNECT_API_KEY }}
+      #     echo "$RWX_APPLE_DEVELOPER_ID_APPLICATION_CERT" > rwx-developer-id-application-cert.pem
+      #     # first we sign the binary. This happens locally.
+      #     ./rcodesign sign --pem-source rwx-developer-id-application-cert.pem --code-signature-flags runtime "./captain"
+      #     # notarizing requires certain container formats, that's why we zip
+      #     zip -r captain.zip "./captain"
+      #     echo "$RWX_APPLE_APP_STORE_CONNECT_API_KEY" > rwx-apple-app-store-connect-api-key.json
+      #     ./rcodesign notary-submit --wait --api-key-path rwx-apple-app-store-connect-api-key.json captain.zip
+      #   env:
+      #     CODESIGN_VERSION: 0.22.0
+      #     RWX_APPLE_DEVELOPER_ID_APPLICATION_CERT: ${{ secrets.RWX_APPLE_DEVELOPER_ID_APPLICATION_CERT }}
+      #     RWX_APPLE_APP_STORE_CONNECT_API_KEY: ${{ secrets.RWX_APPLE_APP_STORE_CONNECT_API_KEY }}
 
       - name: upload captain to github release
         run: |
@@ -246,63 +246,64 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
     steps:
-      - uses: aws-actions/configure-aws-credentials@v1
-        with:
-          aws-region: us-east-1
-          role-to-assume: arn:aws:iam::152560469324:role/captain-cli-cd
-          role-duration-seconds: 900
-      - uses: actions/checkout@v3
-        with:
-          ref: ${{ needs.extract-version-details.outputs.full-version }}
-      - name: Download the binaries
-        run: gh release download ${{ needs.extract-version-details.outputs.full-version }}
-      - name: Upload the binaries to S3 and invalidate cloudfront
-        run: |
-          updatedPaths=""
+      - run: exit 0
+      # - uses: aws-actions/configure-aws-credentials@v1
+      #   with:
+      #     aws-region: us-east-1
+      #     role-to-assume: arn:aws:iam::152560469324:role/captain-cli-cd
+      #     role-duration-seconds: 900
+      # - uses: actions/checkout@v3
+      #   with:
+      #     ref: ${{ needs.extract-version-details.outputs.full-version }}
+      # - name: Download the binaries
+      #   run: gh release download ${{ needs.extract-version-details.outputs.full-version }}
+      # - name: Upload the binaries to S3 and invalidate cloudfront
+      #   run: |
+      #     updatedPaths=""
 
-          for binary in captain-*
-          do
-            cleanedBinary=${binary//.exe/}
-            os=$(echo "$cleanedBinary" | cut -d '-' -f 2)
-            arch=$(echo "$cleanedBinary" | cut -d '-' -f 3)
-            version="${{ needs.extract-version-details.outputs.full-version }}"
+      #     for binary in captain-*
+      #     do
+      #       cleanedBinary=${binary//.exe/}
+      #       os=$(echo "$cleanedBinary" | cut -d '-' -f 2)
+      #       arch=$(echo "$cleanedBinary" | cut -d '-' -f 3)
+      #       version="${{ needs.extract-version-details.outputs.full-version }}"
 
-            if [[ "$arch" == "x86_64" ]]; then
-              oldArch="amd64"
-            elif [[ "$arch" == "aarch64" ]]; then
-              oldArch="arm64"
-            else
-              echo "unmapped arch: $arch"
-              exit 1
-            fi
+      #       if [[ "$arch" == "x86_64" ]]; then
+      #         oldArch="amd64"
+      #       elif [[ "$arch" == "aarch64" ]]; then
+      #         oldArch="arm64"
+      #       else
+      #         echo "unmapped arch: $arch"
+      #         exit 1
+      #       fi
 
-            if [[ "$os" == "windows" ]]; then
-              extension=".exe"
-            fi
+      #       if [[ "$os" == "windows" ]]; then
+      #         extension=".exe"
+      #       fi
 
-            # the old format does not include the extension intentionally
-            oldPath="captain-$os-$oldArch-$version"
-            aws s3 cp "$binary" "s3://terraform-20221109133415397600000001/$oldPath"
-            newPath="$version/$os/$arch/captain$extension"
-            aws s3 cp "$binary" "s3://terraform-20221109133415397600000001/$newPath"
+      #       # the old format does not include the extension intentionally
+      #       oldPath="captain-$os-$oldArch-$version"
+      #       aws s3 cp "$binary" "s3://terraform-20221109133415397600000001/$oldPath"
+      #       newPath="$version/$os/$arch/captain$extension"
+      #       aws s3 cp "$binary" "s3://terraform-20221109133415397600000001/$newPath"
 
-            if [[ "${{ needs.extract-version-details.outputs.aliased-version }}" != "" ]]; then
-              aliasedOldPath=${oldPath//$version/${{ needs.extract-version-details.outputs.aliased-version }}}
-              aws s3 cp "$binary" "s3://terraform-20221109133415397600000001/$aliasedOldPath"
+      #       if [[ "${{ needs.extract-version-details.outputs.aliased-version }}" != "" ]]; then
+      #         aliasedOldPath=${oldPath//$version/${{ needs.extract-version-details.outputs.aliased-version }}}
+      #         aws s3 cp "$binary" "s3://terraform-20221109133415397600000001/$aliasedOldPath"
 
-              aliasedNewPath=${newPath//$version/${{ needs.extract-version-details.outputs.aliased-version }}}
-              aws s3 cp "$binary" "s3://terraform-20221109133415397600000001/$aliasedNewPath"
+      #         aliasedNewPath=${newPath//$version/${{ needs.extract-version-details.outputs.aliased-version }}}
+      #         aws s3 cp "$binary" "s3://terraform-20221109133415397600000001/$aliasedNewPath"
 
-              if [[ "$updatedPaths" == "" ]]; then
-                # shellcheck disable=SC2089
-                updatedPaths="/$aliasedOldPath /$aliasedNewPath"
-              else
-                updatedPaths="$updatedPaths /$aliasedOldPath /$aliasedNewPath"
-              fi
-            fi
-          done
+      #         if [[ "$updatedPaths" == "" ]]; then
+      #           # shellcheck disable=SC2089
+      #           updatedPaths="/$aliasedOldPath /$aliasedNewPath"
+      #         else
+      #           updatedPaths="$updatedPaths /$aliasedOldPath /$aliasedNewPath"
+      #         fi
+      #       fi
+      #     done
 
-          if [[ "$updatedPaths" != "" ]]; then
-            # shellcheck disable=SC2086,SC2090
-            aws cloudfront create-invalidation --distribution-id ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }} --paths $updatedPaths
-          fi
+      #     if [[ "$updatedPaths" != "" ]]; then
+      #       # shellcheck disable=SC2086,SC2090
+      #       aws cloudfront create-invalidation --distribution-id ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }} --paths $updatedPaths
+      #     fi
